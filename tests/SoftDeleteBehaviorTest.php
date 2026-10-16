@@ -3,9 +3,11 @@
 namespace yii2tech\tests\unit\ar\softdelete;
 
 use yii\base\ModelEvent;
+use yii\db\BaseActiveRecord;
 use yii2tech\ar\softdelete\SoftDeleteBehavior;
 use yii2tech\tests\unit\ar\softdelete\data\Category;
 use yii2tech\tests\unit\ar\softdelete\data\Item;
+use yii2tech\tests\unit\ar\softdelete\data\TransactionalItem;
 use yii2tech\tests\unit\ar\softdelete\data\VersionedItem;
 
 class SoftDeleteBehaviorTest extends TestCase
@@ -33,6 +35,60 @@ class SoftDeleteBehaviorTest extends TestCase
 
         $this->assertEquals(true, $item->isDeleted);
         $this->assertEquals(2, Item::find()->count());
+    }
+
+    /**
+     * @depends testReplaceDelete
+     */
+    public function testSoftDeleteWithReplaceRegularDelete()
+    {
+        /* @var $item Item|SoftDeleteBehavior */
+        $item = Item::findOne(2);
+        $item->getBehavior('softDelete')->replaceRegularDelete = true;
+        $afterDeleteCount = 0;
+        $item->on(BaseActiveRecord::EVENT_AFTER_DELETE, function () use (&$afterDeleteCount) {
+            $afterDeleteCount++;
+        });
+
+        $result = $item->softDelete();
+
+        $this->assertEquals(1, $result);
+        $this->assertEquals(true, Item::findOne(2)->isDeleted);
+        $this->assertEquals(1, $afterDeleteCount);
+    }
+
+    /**
+     * @depends testSoftDeleteWithReplaceRegularDelete
+     */
+    public function testTransactionalSoftDeleteWithReplaceRegularDelete()
+    {
+        /* @var $item TransactionalItem|SoftDeleteBehavior */
+        $item = TransactionalItem::findOne(2);
+        $item->getBehavior('softDelete')->replaceRegularDelete = true;
+
+        $this->assertEquals(1, $item->softDelete());
+        $this->assertEquals(true, TransactionalItem::findOne(2)->isDeleted);
+    }
+
+    /**
+     * @depends testSoftDeleteWithReplaceRegularDelete
+     */
+    public function testExceptionInBeforeDeleteDuringSoftDelete()
+    {
+        /* @var $item Item|SoftDeleteBehavior */
+        $item = Item::findOne(2);
+        $item->getBehavior('softDelete')->replaceRegularDelete = true;
+        $item->throwOnDeleteException = true;
+        try {
+            $item->softDelete();
+            $this->fail('exception from beforeDelete() expected');
+        } catch (\yii\db\IntegrityException $exception) {
+        }
+        $this->assertEquals(false, Item::findOne(2)->isDeleted);
+
+        $item->throwOnDeleteException = false;
+        $item->delete();
+        $this->assertEquals(true, Item::findOne(2)->isDeleted);
     }
 
     /**
@@ -150,6 +206,26 @@ class SoftDeleteBehaviorTest extends TestCase
     /**
      * @depends testSoftDelete
      */
+    /**
+     * @depends testSoftDelete
+     */
+    public function testNoAfterDeleteOnVetoedSoftDelete()
+    {
+        /* @var $item Item|SoftDeleteBehavior */
+        $item = Item::findOne(2);
+        $afterDeleteCount = 0;
+        $item->on(BaseActiveRecord::EVENT_AFTER_DELETE, function () use (&$afterDeleteCount) {
+            $afterDeleteCount++;
+        });
+        $item->on(SoftDeleteBehavior::EVENT_BEFORE_SOFT_DELETE, function (ModelEvent $event) {
+            $event->isValid = false;
+        });
+
+        $this->assertFalse($item->softDelete());
+        $this->assertEquals(false, Item::findOne(2)->isDeleted);
+        $this->assertEquals(0, $afterDeleteCount);
+    }
+
     public function testBeforeSoftDelete()
     {
         /* @var $item Item|SoftDeleteBehavior */

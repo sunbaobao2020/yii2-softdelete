@@ -147,6 +147,10 @@ class SoftDeleteBehavior extends Behavior
      * @since 1.0.4
      */
     private $_useRestoreAttributeValuesAsDefaults = false;
+    /**
+     * @var bool whether {@see softDelete()} is invoking owner {@see BaseActiveRecord::beforeDelete()} right now.
+     */
+    private $_isSoftDeleting = false;
 
 
     /**
@@ -209,13 +213,28 @@ class SoftDeleteBehavior extends Behavior
         }
 
         $softDeleteCallback = function () {
-            if ($this->invokeDeleteEvents && !$this->owner->beforeDelete()) {
-                return false;
+            if ($this->invokeDeleteEvents) {
+                // keep beforeDelete() from soft deleting on its own when regular delete is replaced
+                $this->_isSoftDeleting = true;
+                try {
+                    $isValid = $this->owner->beforeDelete();
+                } catch (\Exception $exception) {
+                    // PHP < 7.0
+                } catch (\Throwable $exception) {
+                    // PHP >= 7.0
+                }
+                $this->_isSoftDeleting = false;
+                if (isset($exception)) {
+                    throw $exception;
+                }
+                if (!$isValid) {
+                    return false;
+                }
             }
 
             $result = $this->softDeleteInternal();
 
-            if ($this->invokeDeleteEvents) {
+            if ($this->invokeDeleteEvents && $result !== false) {
                 $this->owner->afterDelete();
             }
 
@@ -566,6 +585,9 @@ class SoftDeleteBehavior extends Behavior
      */
     public function beforeDelete($event)
     {
+        if ($this->_isSoftDeleting) {
+            return;
+        }
         if (!$this->isDeleteAllowed()) {
             $this->softDeleteInternal();
             $event->isValid = false;
