@@ -1,6 +1,15 @@
 Yii 2 ActiveRecord Soft Delete extension Change Log
 ===================================================
 
+1.0.5, October 16, 2026
+-----------------------
+
+- Bug: `SoftDeleteBehavior::softDelete()` returned `false` and rolled back the soft delete in transactional scenarios when `replaceRegularDelete` was enabled
+- Bug: `SoftDeleteBehavior::softDelete()` triggered `afterDelete` even if the soft delete was vetoed
+- Enh: Supports Yii 2.0.0 - 2.0.12 (no `StaticInstanceTrait` / `ActiveQuery::getTablesUsedInFrom()`), tested up to Yii 2.0.55
+- Enh: Test suite runs on PHPUnit 4.8 - 9 (PHP 5.6 - 8.4)
+
+
 1.0.4, July 30, 2019
 --------------------
 
