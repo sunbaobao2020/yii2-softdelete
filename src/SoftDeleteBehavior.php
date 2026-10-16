@@ -589,6 +589,11 @@ class SoftDeleteBehavior extends Behavior
             return;
         }
         if (!$this->isDeleteAllowed()) {
+            if ($this->isTransactional(ActiveRecord::OP_DELETE)) {
+                // BaseActiveRecord::delete() rolls its transaction back when deletion is vetoed, which would
+                // silently undo the soft delete.
+                throw new InvalidConfigException('"' . get_class($this) . '::$replaceRegularDelete" can not be used while "' . get_class($this->owner) . '" deletes in a transaction (see transactions()), call softDelete() instead.');
+            }
             $this->softDeleteInternal();
             $event->isValid = false;
         }

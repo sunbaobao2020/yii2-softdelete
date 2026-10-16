@@ -71,6 +71,23 @@ class SoftDeleteBehaviorTest extends TestCase
     }
 
     /**
+     * @depends testTransactionalSoftDeleteWithReplaceRegularDelete
+     */
+    public function testTransactionalRegularDeleteWithReplaceRegularDelete()
+    {
+        /* @var $item TransactionalItem|SoftDeleteBehavior */
+        $item = TransactionalItem::findOne(2);
+        $item->getBehavior('softDelete')->replaceRegularDelete = true;
+        try {
+            $item->delete();
+            $this->fail('transactional delete() must not silently roll back the soft delete');
+        } catch (\yii\base\InvalidConfigException $exception) {
+        }
+        $this->assertEquals(false, TransactionalItem::findOne(2)->isDeleted);
+        $this->assertEquals(2, TransactionalItem::find()->count());
+    }
+
+    /**
      * @depends testSoftDeleteWithReplaceRegularDelete
      */
     public function testExceptionInBeforeDeleteDuringSoftDelete()
