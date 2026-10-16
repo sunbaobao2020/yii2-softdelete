@@ -1,6 +1,12 @@
 Yii 2 ActiveRecord Soft Delete extension Change Log
 ===================================================
 
+1.0.6, October 16, 2026
+-----------------------
+
+- Bug: With `replaceRegularDelete` and a transactional `delete()` (see `ActiveRecord::transactions()`), `delete()` rolled the soft delete back; it now throws `InvalidConfigException` pointing to `softDelete()`
+
+
 1.0.5, October 16, 2026
 -----------------------
 
