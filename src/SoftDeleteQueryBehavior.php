@@ -282,7 +282,16 @@ class SoftDeleteQueryBehavior extends Behavior
      */
     protected function getModelInstance()
     {
-        return call_user_func([$this->owner->modelClass, 'instance']);
+        $modelClass = $this->owner->modelClass;
+        if (method_exists($modelClass, 'instance')) {
+            return $modelClass::instance();
+        }
+        // Yii < 2.0.13 has no `StaticInstanceTrait`
+        static $instances = [];
+        if (!isset($instances[$modelClass])) {
+            $instances[$modelClass] = new $modelClass();
+        }
+        return $instances[$modelClass];
     }
 
     /**
@@ -292,10 +301,8 @@ class SoftDeleteQueryBehavior extends Behavior
      */
     protected function normalizeFilterCondition($condition)
     {
-        if (method_exists($this->owner, 'getTablesUsedInFrom')) {
-            $fromTables = $this->owner->getTablesUsedInFrom();
-            $alias = array_keys($fromTables)[0];
-
+        $alias = $this->detectTableAlias();
+        if ($alias !== null) {
             foreach ($condition as $attribute => $value) {
                 if (is_numeric($attribute) || strpos($attribute, '.') !== false) {
                     continue;
@@ -311,5 +318,39 @@ class SoftDeleteQueryBehavior extends Behavior
         }
 
         return $condition;
+    }
+
+    /**
+     * Detects the alias of the owner query main table.
+     * @return string|null table alias, `null` if it can not be detected.
+     */
+    private function detectTableAlias()
+    {
+        if (method_exists($this->owner, 'getTablesUsedInFrom')) {
+            $fromTables = $this->owner->getTablesUsedInFrom();
+            return array_keys($fromTables)[0];
+        }
+
+        // Yii < 2.0.12 has no `ActiveQuery::getTablesUsedInFrom()`
+        if (!property_exists($this->owner, 'from') || !property_exists($this->owner, 'modelClass')) {
+            return null;
+        }
+        $from = $this->owner->from;
+        if (empty($from)) {
+            $modelClass = $this->owner->modelClass;
+            $from = [$modelClass::tableName()];
+        }
+        foreach ((array) $from as $alias => $table) {
+            if (!is_string($alias)) {
+                if (!is_string($table)) {
+                    return null;
+                }
+                $parts = preg_split('/\s+(?:as\s+)?/i', trim($table));
+                $alias = end($parts);
+            }
+            return strpos($alias, '{{') === false ? '{{' . $alias . '}}' : $alias;
+        }
+
+        return null;
     }
 }

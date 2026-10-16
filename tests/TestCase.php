@@ -10,15 +10,21 @@ use Yii;
  */
 class TestCase extends \PHPUnit\Framework\TestCase
 {
-    protected function setUp()
+    /**
+     * `@before` instead of `setUp()`: works on PHPUnit 4.8 - 9 without the PHP 7.1 `void` return type.
+     * @before
+     */
+    protected function setUpTestApplication()
     {
-        parent::setUp();
         $this->mockApplication();
 
         $this->setupTestDbData();
     }
 
-    protected function tearDown()
+    /**
+     * @after
+     */
+    protected function tearDownTestApplication()
     {
         $this->destroyApplication();
     }
@@ -89,11 +95,11 @@ class TestCase extends \PHPUnit\Framework\TestCase
             ->execute();
 
         // Data :
-        $categoryIds = [
-            $db->getSchema()->insert('Category', ['name' => 'category1', 'isDeleted' => false])['id'],
-            $db->getSchema()->insert('Category', ['name' => 'category2', 'isDeleted' => false])['id'],
-            $db->getSchema()->insert('Category', ['name' => 'category3', 'isDeleted' => false])['id'],
-        ];
+        $categoryIds = [];
+        foreach (['category1', 'category2', 'category3'] as $name) {
+            $db->createCommand()->insert('Category', ['name' => $name, 'isDeleted' => false])->execute();
+            $categoryIds[] = $db->getLastInsertID();
+        }
 
         $db->createCommand()->batchInsert('Item', ['name', 'categoryId'], [
             ['item1', $categoryIds[0]],

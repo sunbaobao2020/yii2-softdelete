@@ -81,10 +81,10 @@ class SoftDeleteQueryBehaviorTest extends TestCase
     {
         Category::find()->limit(1)->one()->softDelete();
 
-        $this->assertCount(1, Category::find()->alias('t1')->deleted()->all());
+        $this->assertCount(1, Category::find()->from(['t1' => Category::tableName()])->deleted()->all());
 
         $rows = Category::find()
-            ->alias('t1')
+            ->from(['t1' => Category::tableName()])
             ->deleted()
             ->leftJoin(Item::tableName() . ' t2', 't1.id=t2.categoryId')
             ->all();
